@@ -1,0 +1,19 @@
+[Unit]
+Description = Wireguard Watchdog service resetting wg interface on public IP (WAN gateway) change
+# start after network interfaces are made available
+After = network.target
+
+[Service]
+Type = simple
+ExecStart = python3 /scripts/wg-watchdog.py
+User = root
+Group = root
+# Restart when there are errors
+Restart = on-failure
+SyslogIdentifier = Wireguard-Watchdog
+RestartSec = 5
+TimeoutStartSec = infinity
+
+[Install]
+# Make it accessible to other users
+WantedBy = multi-user.target
