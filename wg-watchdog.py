@@ -14,7 +14,7 @@ API_URLS = ["https://ifconfig.me", "https://api.ipify.org", "https://ident.me"]
 IP_CHECK_INTERVAL = 1  # seconds
 REQUEST_TIMEOUT = 2  # seconds
 WIREGUARD_INTERFACES = ["wg0", "wg1"]
-LOGGING_LEVEL = logging.DEBUG
+LOGGING_LEVEL = logging.INFO
 
 logging.basicConfig(level=LOGGING_LEVEL,
                     format='%(asctime)s %(levelname)s: %(message)s')
