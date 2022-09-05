@@ -6,29 +6,33 @@ import subprocess
 from multiprocessing.pool import ThreadPool
 from time import sleep
 from typing import Union
-from urllib.error import HTTPError
 
 import requests
+from requests.exceptions import RequestException
 
 API_URLS = ["https://ifconfig.me", "https://api.ipify.org", "https://ident.me"]
 IP_CHECK_INTERVAL = 1  # seconds
-WIREGUARD_INTERFACE = "wg1"
 REQUEST_TIMEOUT = 2  # seconds
+WIREGUARD_INTERFACES = ["wg0", "wg1"]
+LOGGING_LEVEL = logging.DEBUG
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=LOGGING_LEVEL,
                     format='%(asctime)s %(levelname)s: %(message)s')
 
 
-def get_public_ip() -> tuple[Union[str, None], list[HTTPError]]:
-    def fetch_ip(url: str) -> tuple[Union[str, None], Union[HTTPError, None]]:
+def get_public_ip() -> tuple[Union[str, None], list[RequestException]]:
+    def fetch_ip(url: str) -> tuple[Union[str, None], Union[RequestException, None]]:
         try:
             response = requests.get(url, timeout=REQUEST_TIMEOUT)
             response.raise_for_status()
-            return response.text, None
+            ip = response.text
+            logging.debug(f"Fetching public IP from: {url} | Response: {ip}")
+            return ip, None
         except requests.exceptions.RequestException as e:
+            logging.error(e)
             return None, e
 
-    errors: list[HTTPError] = []
+    errors: list[RequestException] = []
     with ThreadPool(processes=len(API_URLS)) as pool:
         results = pool.map(fetch_ip, API_URLS)
     errors = [r[1] for r in results if r[1]]
@@ -39,10 +43,10 @@ def get_public_ip() -> tuple[Union[str, None], list[HTTPError]]:
     return None, errors
 
 
-def reset_wireguard():
-    logging.warning(f"Resetting Wireguard interface - {WIREGUARD_INTERFACE}")
+def reset_wireguard(interface: str):
+    logging.warning(f"Resetting Wireguard interface - {interface}")
     subprocess.run(
-        ["systemctl", "restart", f"wg-quick@{WIREGUARD_INTERFACE}"], check=True)
+        ["systemctl", "restart", f"wg-quick@{interface}"], check=True)
 
 
 def main():
@@ -54,16 +58,15 @@ def main():
             logging.info(f"Current public IP: {previous_ip}")
             continue
 
-        current_ip, err = get_public_ip()
+        current_ip, _ = get_public_ip()
         if not current_ip:
-            for e in err:
-                logging.error(e)
             continue
 
         if current_ip != previous_ip:
             logging.warning(
                 f"Public IP changed to: {current_ip} from: {previous_ip}")
-            reset_wireguard()
+            for interface in WIREGUARD_INTERFACES:
+                reset_wireguard(interface)
             previous_ip = current_ip
             logging.info(f"Current public IP: {current_ip}")
         else:
